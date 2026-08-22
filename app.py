@@ -385,7 +385,7 @@ def ask_comparison(hospital_names: list, user_question: str):
 
     summary_response = call_gemini_safe(
         gemini_client.models.generate_content_stream,
-        model="gemini-2.5-flash-lite",
+        model="gemini-3.5-flash-lite",
         contents=comparison_prompt,
         config=types.GenerateContentConfig(temperature=0.1)
     )
@@ -436,7 +436,7 @@ def ask_chatbot_general(user_question: str):
     
     sql_completion = call_gemini_safe(
         gemini_client.models.generate_content,
-        model="gemini-2.5-flash-lite",
+        model="gemini-3.5-flash-lite",
         contents=sql_prompt,
         config=types.GenerateContentConfig(temperature=0.1)
     )
@@ -505,7 +505,7 @@ def ask_chatbot_general(user_question: str):
     
     summary_response = call_gemini_safe(
         gemini_client.models.generate_content_stream,
-        model="gemini-2.5-flash-lite",
+        model="gemini-3.5-flash-lite",
         contents=summary_prompt,
         config=types.GenerateContentConfig(temperature=0.7)
     )
@@ -541,7 +541,7 @@ def route_user_query(user_question: str) -> dict:
     try:
         completion = call_gemini_safe(
             gemini_client.models.generate_content,
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.5-flash-lite",
             contents=router_prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,
@@ -590,7 +590,7 @@ def contextualize_question(user_question: str, chat_history: list) -> str:
     
     try:
         completion = gemini_client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.5-flash-lite",
             contents=context_prompt,
             config=types.GenerateContentConfig(temperature=0.0)
         )
