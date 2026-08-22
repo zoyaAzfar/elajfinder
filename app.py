@@ -597,33 +597,42 @@ DEBUG = st.sidebar.checkbox("🔧 Show matching debug info")
 
 # process querry using helper functions above + adds debug mode to see behind the scenes
 def process_query(user_question: str, chat_history: list):
-    standalone_question = contextualize_question(user_question, chat_history)
-    detected_now = detect_mentioned_hospitals(standalone_question)
-    route = route_user_query(standalone_question)
-    hospitals = route.get("hospitals", [])
-
-    if DEBUG:
-        with st.expander(" Debug: name resolution", expanded=True):
-            st.write("Standalone question:", standalone_question)
-            st.write("Deterministic detection:", detected_now)
-            st.write("Router output:", route)
-
-    wants_compare = route.get("intent") == "compare" or bool(
-        re.search(r"\bcompar|\bvs\.?\b|\bversus\b|better than", standalone_question, re.I)
+    question_lower = user_question.lower()
+    context_words = ["them", "these", "those", "both", "which one", "it", "the first", "the second"]
+    needs_context = bool(chat_history) and any(
+        re.search(r'\b' + re.escape(w) + r'\b', question_lower) for w in context_words
     )
 
-    if wants_compare and len(detected_now) >= 2:
-        hospitals = detected_now
-    elif wants_compare and len(hospitals) < 2:
+    if needs_context:
+        standalone_question = contextualize_question(user_question, chat_history)
+    else:
+        standalone_question = user_question
+
+    detected_now = detect_mentioned_hospitals(standalone_question)
+
+    wants_compare = bool(
+        re.search(r"\b(compar|vs\.?|versus|better than|difference between)\b", standalone_question, re.I)
+    ) or len(detected_now) >= 2
+
+    hospitals = detected_now.copy()
+
+    if wants_compare and len(hospitals) < 2:
         history_hospitals = extract_hospitals_from_history(chat_history)
-        if len(history_hospitals) >= 2:
-            hospitals = history_hospitals
+        for h in history_hospitals:
+            if h not in hospitals:
+                hospitals.append(h)
 
     if DEBUG:
-        st.write("Final hospitals used:", hospitals)
+        with st.expander("Debug mode", expanded=True):
+            st.write("LLM Contextualization Triggered:", needs_context)
+            st.write("Standalone question:", standalone_question)
+            st.write("Deterministic detection:", detected_now)
+            st.write("Wants compare intent:", wants_compare)
+            st.write("Final hospitals used:", hospitals)
 
     if wants_compare and len(hospitals) >= 2:
-        return ask_comparison(hospitals, standalone_question)
+        return ask_comparison(hospitals[:2], standalone_question)
+
     return ask_chatbot_general(standalone_question)
 
 # creating the actual streamlit UI 
