@@ -681,12 +681,12 @@ st.set_page_config(
 # styling for page
 page_css = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Noto+Nastaliq+Urdu:wght@400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Serif:ital,opsz,wght@0,8..144,100..900;1,8..144,100..900&display=swap');
 
 html, body, [class*="css"], .stApp, 
 div[data-testid="stMarkdownContainer"] *, 
 div[data-testid="stHeading"] * {
-    font-family: "IBM Plex Serif", serif !important;
+    font-family: "Roboto Serif", serif !important;
 }
 
 h1, h2, h3, h4,
@@ -694,7 +694,7 @@ div[data-testid="stMarkdownContainer"] h1,
 div[data-testid="stMarkdownContainer"] h2,
 div[data-testid="stMarkdownContainer"] h3,
 div[data-testid="stHeading"] {
-    font-family: "IBM Plex Serif", serif !important;
+    font-family: "Roboto Serif", serif !important;
     color: #1e293b !important;
     font-weight: 700 !important;
 }
