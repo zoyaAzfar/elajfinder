@@ -654,8 +654,8 @@ def process_query(user_question: str, chat_history: list):
     return ask_chatbot_general(standalone_question)
 
 # creating the actual streamlit UI 
-st.title("HospitalNama Bot")
-st.write("I provide information about 45 hospitals in Lahore.")
+st.title("Haspatal Finder")
+st.write("I can help you find information on and compare hospitals in Lahore!")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
