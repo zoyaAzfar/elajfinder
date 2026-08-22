@@ -12,6 +12,8 @@ from rapidfuzz import fuzz, process
 from google import genai
 from google.genai import types
 import googlemaps 
+import time
+from google.genai.errors import APIError
 
 # reading csv file and converting it to a database
 CSV_FILE = "NAME_FIXED_HOSPITALS.csv"
@@ -143,7 +145,19 @@ def resolve_hospital_name(user_input_name: str, score_cutoff: int = 78) -> str:
 
     return user_input_name
 
-# installing gemini 
+# automatic retry within limits due to free tier 
+def call_gemini_safe(func, *args, max_retries=3, **kwargs):
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                if attempt < max_retries - 1:
+                    time.sleep(4 * (attempt + 1))   
+                    continue
+            raise e
+
+#  gemini set up
 api_key = os.environ.get("GEMINI_API_KEY") or (st.secrets.get("GEMINI_API_KEY") if "GEMINI_API_KEY" in st.secrets else None)
 
 if not api_key:
@@ -369,7 +383,8 @@ def ask_comparison(hospital_names: list, user_question: str):
     9. When using quotes, format accordingly. Keep CONCISE and BRIEF unless otherwise specified.
     """
 
-    summary_response = gemini_client.models.generate_content_stream(
+    summary_response = call_gemini_safe(
+        gemini_client.models.generate_content_stream,
         model="gemini-2.5-flash",
         contents=comparison_prompt,
         config=types.GenerateContentConfig(temperature=0.1)
@@ -419,7 +434,8 @@ def ask_chatbot_general(user_question: str):
     Question: {user_question}
     """
     
-    sql_completion = gemini_client.models.generate_content(
+    sql_completion = call_gemini_safe(
+        gemini_client.models.generate_content,
         model="gemini-2.5-flash",
         contents=sql_prompt,
         config=types.GenerateContentConfig(temperature=0.1)
@@ -487,7 +503,8 @@ def ask_chatbot_general(user_question: str):
     - Example: A 'Gynecology (%)' of 60% simply means 60% of online reviewers discussed the gynecology department. To check if a hospital offers that service, check the department list before reviews.
     """
     
-    summary_response = gemini_client.models.generate_content_stream(
+    summary_response = call_gemini_safe(
+        gemini_client.models.generate_content_stream,
         model="gemini-2.5-flash",
         contents=summary_prompt,
         config=types.GenerateContentConfig(temperature=0.7)
@@ -522,7 +539,8 @@ def route_user_query(user_question: str) -> dict:
     """
     
     try:
-        completion = gemini_client.models.generate_content(
+        completion = call_gemini_safe(
+            gemini_client.models.generate_content,
             model="gemini-2.5-flash",
             contents=router_prompt,
             config=types.GenerateContentConfig(
