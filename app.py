@@ -671,6 +671,7 @@ with st.sidebar:
 
     # location picking 
     st.header("Enter Your Location")
+    st.write("This allows you to figure out which hospitals are closest to you!") 
     user_location_str = st.text_input("Enter your neighborhood/area:", placeholder="e.g. DHA Phase 5...")
 
     if "user_coords" not in st.session_state:
@@ -705,7 +706,7 @@ with st.sidebar:
     st.divider()
 
     # search for specific department or features
-    st.subheader("Search for...")
+    st.subheader("Search for Specific Features")
     selected_dept = st.selectbox("Needs Department:", [""] + ALL_DEPARTMENTS)
     selected_sector = st.selectbox("Sector:", ["", "Private", "Public"])
     min_price, max_price = st.slider(
@@ -755,7 +756,7 @@ with st.sidebar:
     st.divider()
 
     # learn more about a singular hospital 
-    st.subheader("Tell me about...")
+    st.subheader("Learn More About A Hospital")
     single_hosp = st.selectbox("Select a hospital:", [""] + EXISTING_HOSPITALS, key="single_hosp")
     if st.button("Ask about this hospital") and single_hosp:
         st.session_state.preset_prompt = f"Tell me about {single_hosp}, and what the reviews are like."
@@ -763,14 +764,14 @@ with st.sidebar:
     st.divider()
 
     # comapre two hospitals
-    st.subheader("Compare...")
+    st.subheader("Compare Hospitals")
     comp_a = st.selectbox("First Hospital:", [""] + EXISTING_HOSPITALS, key="comp_a")
     comp_b = st.selectbox("Second Hospital:", [""] + EXISTING_HOSPITALS, key="comp_b")
     if st.button("Go") and comp_a and comp_b:
         st.session_state.preset_prompt = f"Compare {comp_a} and {comp_b}"
 
 # search bar
-user_typed = st.chat_input("Ask me about a hospital...")
+user_typed = st.chat_input("Ask me about hospitals in Lahore...")
 
 prompt = user_typed or st.session_state.preset_prompt
 
