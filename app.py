@@ -17,6 +17,12 @@ from google.genai.errors import APIError
 from PIL import Image 
 im = Image.open('favicon.png') 
 
+
+st.set_page_config(     
+    page_title="ElajFinder",     
+    page_icon=im,     
+    initial_sidebar_state="expanded" )
+
 # reading csv file and converting it to a database
 CSV_FILE = "NAME_FIXED_HOSPITALS.csv"
 DB_FILE = "database.db"
@@ -712,11 +718,6 @@ def process_query(user_question: str, chat_history: list):
 
     return ask_chatbot_general(standalone_question)
 
-# creating the actual streamlit UI 
-st.set_page_config(
-    page_title="ElajFinder",
-    initial_sidebar_state="expanded"
-)
 
 # styling for page
 page_css = """
@@ -765,7 +766,7 @@ div[data-testid="stChatMessageAvatarAssistant"] svg {
 
 st.markdown(page_css, unsafe_allow_html=True)
 
-st.set_page_config(page_title="ElajFinder", page_icon = im)
+    
 st.title("ElajFinder")
 st.write("I can help you find information on and compare hospitals in Lahore!")
 
@@ -838,10 +839,6 @@ with st.sidebar:
     if st.sidebar.button("Save Location") and st.session_state.get("user_coords") and save_label:
         st.session_state.saved_locations[save_label] = list(st.session_state.user_coords)
         save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.saved_locations)
-
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
-    if st.session_state.get("user_key"):
-        save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.get("saved_locations", {}))
 
     st.divider()
 
@@ -926,5 +923,8 @@ if prompt:
     with st.chat_message("assistant"):
         response_generator = process_query(prompt, current_history)
         full_response = st.write_stream(response_generator)
-        
+  
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+    if st.session_state.get("user_key"):
+        save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.get("saved_locations", {}))
+
