@@ -743,7 +743,7 @@ with st.sidebar:
 
     # location picking 
     st.header("Enter Your Location")
-    st.write("This allows you to figure out which hospitals are closest to you!") 
+    st.write("This allows the chatbot to factor in drive times and distance in its responses.") 
     user_location_str = st.text_input("Enter your neighborhood/area:", placeholder="e.g. DHA Phase 5...")
 
     if "user_coords" not in st.session_state:
