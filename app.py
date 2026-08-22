@@ -14,6 +14,8 @@ from google.genai import types
 import googlemaps 
 import time
 from google.genai.errors import APIError
+from PIL import Image 
+im = Image.open('favicon.png') 
 
 # reading csv file and converting it to a database
 CSV_FILE = "NAME_FIXED_HOSPITALS.csv"
@@ -627,7 +629,8 @@ def extract_hospitals_from_history(chat_history: list) -> list:
                 return found_hospitals
     return found_hospitals
 
-DEBUG = st.sidebar.checkbox("Debug mode")
+# debug mode commented out for deployment 
+# DEBUG = st.sidebar.checkbox("Debug mode")
 
 # process querry using helper functions above + adds debug mode to see behind the scenes
 def process_query(user_question: str, chat_history: list):
@@ -720,6 +723,7 @@ div[data-testid="stChatMessageAvatarAssistant"] svg {
 
 st.markdown(page_css, unsafe_allow_html=True)
 
+st.set_page_config(page_title="ElajFinder", page_icon = im)
 st.title("ElajFinder")
 st.write("I can help you find information on and compare hospitals in Lahore!")
 
