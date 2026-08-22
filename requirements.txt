@@ -1,0 +1,7 @@
+streamlit
+pandas
+rapidfuzz
+google-generativeai
+googlemaps
+geopy
+requests
