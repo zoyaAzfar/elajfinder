@@ -110,19 +110,33 @@ def _best_hospital_matches(user_text: str, score_cutoff: int = 78, limit: int = 
     scored.sort(key=lambda x: -x[0])
     return [name for _, name in scored[:limit]]
 
-def detect_mentioned_hospitals(user_question: str, score_cutoff: int = 78, limit: int = 5):
+def detect_mentioned_hospitals(user_question: str, score_cutoff: int = 80, limit: int = 5):
+    """Scans free text for ALL likely hospital mentions, not just the single best match."""
     question_lower = user_question.lower()
     found = []
 
+    # 1. Alias hits first (exact nicknames/abbreviations are cheap and reliable)
     for alias, canonical in ALIAS_INDEX.items():
         if alias in question_lower and canonical not in found:
             found.append(canonical)
 
-    for name in _best_hospital_matches(user_question, score_cutoff, limit):
+    # Clean the input text so generic words like "memorial" or "hospital" don't trigger false matches
+    cleaned_question = clean_hospital_query(question_lower)
+
+    # 2. Fuzzy matches on the CLEANED question (Notice score_cutoff raised to 80)
+    matches = process.extract(
+        cleaned_question, 
+        EXISTING_HOSPITALS, 
+        scorer=fuzz.partial_token_set_ratio,
+        limit=limit, 
+        score_cutoff=score_cutoff
+    )
+    
+    for name, score, _ in matches:
         if name not in found:
             found.append(name)
 
-    return found[:limit]
+    return found
 
 def resolve_hospital_name(user_input_name: str, score_cutoff: int = 78) -> str:
     clean_input = re.sub(r'\bhospital\b', '', user_input_name.lower())
@@ -525,6 +539,8 @@ def route_user_query(user_question: str) -> dict:
 
     router_prompt = f"""
     Analyze the user question and determine if they want to compare specific hospitals.
+    Only flag intent as "compare" if the user uses words such as "compare" or asks you for information
+    about two hospitals. If the user only mentioned ONE hospital in their query, do not flag as compare. 
     Available Known Hospitals in Database (sample): {json.dumps(EXISTING_HOSPITALS[:20])}
 
     User Question: "{user_question}"
@@ -654,7 +670,59 @@ def process_query(user_question: str, chat_history: list):
     return ask_chatbot_general(standalone_question)
 
 # creating the actual streamlit UI 
-st.title("Haspatal Finder")
+st.set_page_config(
+    page_title="ElajFinder",
+    initial_sidebar_state="expanded"
+)
+
+# styling for page
+page_css = """
+<style>
+html, body, [class*="css"], .stApp {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}
+
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) {
+    background-color: #f0f7ff !important;
+    border: 1px solid #bae6fd !important;
+    border-left: 5px solid #2563eb !important;
+    border-radius: 16px !important;
+    padding: 12px !important;
+}
+
+div[data-testid="stChatMessageAvatarUser"] {
+    background-color: #2563eb !important;
+    color: white !important;
+}
+
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) {
+    background-color: #fff1f2 !important;
+    border: 1px solid #fecdd3 !important;
+    border-left: 5px solid #e11d48 !important;
+    border-radius: 16px !important;
+    padding: 12px !important;
+}
+
+div[data-testid="stChatMessageAvatarAssistant"] {
+    background-color: #e11d48 !important;
+    color: white !important;
+}
+
+.stButton > button {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    color: white !important;
+    border-radius: 20px !important;
+    border: none !important;
+}
+
+.stButton > button:hover {
+    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+}
+</style>
+"""
+st.markdown(page_css, unsafe_allow_html=True)
+
+st.title("ElajFinder")
 st.write("I can help you find information on and compare hospitals in Lahore!")
 
 if "messages" not in st.session_state:
