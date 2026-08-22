@@ -611,7 +611,7 @@ def extract_hospitals_from_history(chat_history: list) -> list:
                 return found_hospitals
     return found_hospitals
 
-DEBUG = st.sidebar.checkbox("🔧 Show matching debug info")
+DEBUG = st.sidebar.checkbox("Debug mode")
 
 # process querry using helper functions above + adds debug mode to see behind the scenes
 def process_query(user_question: str, chat_history: list):
