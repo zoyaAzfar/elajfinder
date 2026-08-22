@@ -694,7 +694,7 @@ div[data-testid="stMarkdownContainer"] h1,
 div[data-testid="stMarkdownContainer"] h2,
 div[data-testid="stMarkdownContainer"] h3,
 div[data-testid="stHeading"] {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    font-family: "IBM Plex Serif", serif !important;
     color: #1e293b !important;
     font-weight: 700 !important;
 }
