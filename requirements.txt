@@ -1,7 +1,7 @@
 streamlit
 pandas
 rapidfuzz
-google-generativeai
+google-genai
 googlemaps
 geopy
 requests
