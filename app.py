@@ -47,6 +47,46 @@ conn.close()
 
 STOPWORDS = {"hospital", "medical", "complex", "building", "old", "new", "the", "of", "and"}
 
+# user table for saving history
+def init_user_tables():
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_data (
+            user_key TEXT PRIMARY KEY,
+            chat_history TEXT,
+            saved_locations TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_user_tables()
+
+def load_user_data(user_key):
+    conn = sqlite3.connect(DB_FILE)
+    row = conn.execute(
+        "SELECT chat_history, saved_locations FROM user_data WHERE user_key=?",
+        (user_key,)
+    ).fetchone()
+    conn.close()
+    if row:
+        return json.loads(row[0] or "[]"), json.loads(row[1] or "{}")
+    return [], {}
+
+def save_user_data(user_key, history, locations):
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("""
+        INSERT INTO user_data (user_key, chat_history, saved_locations)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_key) DO UPDATE SET
+            chat_history=excluded.chat_history,
+            saved_locations=excluded.saved_locations
+    """, (user_key, json.dumps(history), json.dumps(locations)))
+    conn.commit()
+    conn.close()
+
+
+
 # this function builds a list of alias names for the actual names written in the database 
 def build_alias_index(names):
     alias_map = {}
@@ -729,6 +769,19 @@ st.set_page_config(page_title="ElajFinder", page_icon = im)
 st.title("ElajFinder")
 st.write("I can help you find information on and compare hospitals in Lahore!")
 
+if "user_key" not in st.session_state:
+    st.session_state.user_key = st.query_params.get("uid", None)
+
+if not st.session_state.user_key:
+    entered = st.sidebar.text_input("Enter a nickname to save your session:")
+    if entered:
+        st.session_state.user_key = entered
+        st.query_params["uid"] = entered
+        st.session_state.messages, st.session_state.saved_locations = load_user_data(entered)
+        st.rerun()
+elif "messages" not in st.session_state:
+    st.session_state.messages, st.session_state.saved_locations = load_user_data(st.session_state.user_key)
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "preset_prompt" not in st.session_state:
@@ -774,6 +827,21 @@ with st.sidebar:
                         
                 except Exception as e:
                     st.error(f"An unexpected error occurred with Google Maps: {e}")
+
+    if st.session_state.get("saved_locations"):
+        pick = st.sidebar.selectbox("Load a saved place:", [""] + list(st.session_state.saved_locations.keys()))
+        if pick:
+            st.session_state.user_coords = tuple(st.session_state.saved_locations[pick])
+            st.session_state.user_location_name = pick
+    
+    save_label = st.sidebar.text_input("Save current location as:", placeholder="Home, Work...")
+    if st.sidebar.button("Save Location") and st.session_state.get("user_coords") and save_label:
+        st.session_state.saved_locations[save_label] = list(st.session_state.user_coords)
+        save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.saved_locations)
+
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    if st.session_state.get("user_key"):
+        save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.get("saved_locations", {}))
 
     st.divider()
 
