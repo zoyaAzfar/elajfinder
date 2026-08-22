@@ -678,48 +678,46 @@ st.set_page_config(
 # styling for page
 page_css = """
 <style>
-html, body, [class*="css"], .stApp {
+html, body, [class*="css"], .stApp, 
+div[data-testid="stMarkdownContainer"] *, 
+div[data-testid="stHeading"] * {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
-div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) {
-    background-color: #f0f7ff !important;
-    border: 1px solid #bae6fd !important;
-    border-left: 5px solid #2563eb !important;
-    border-radius: 16px !important;
-    padding: 12px !important;
+h1, h2, h3, h4,
+div[data-testid="stMarkdownContainer"] h1,
+div[data-testid="stMarkdownContainer"] h2,
+div[data-testid="stMarkdownContainer"] h3,
+div[data-testid="stHeading"] {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    color: #1e293b !important;
+    font-weight: 700 !important;
 }
 
 div[data-testid="stChatMessageAvatarUser"] {
     background-color: #2563eb !important;
-    color: white !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
 }
 
-div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) {
-    background-color: #fff1f2 !important;
-    border: 1px solid #fecdd3 !important;
-    border-left: 5px solid #e11d48 !important;
-    border-radius: 16px !important;
-    padding: 12px !important;
+div[data-testid="stChatMessageAvatarUser"] svg {
+    fill: #ffffff !important;
+    color: #ffffff !important;
 }
 
 div[data-testid="stChatMessageAvatarAssistant"] {
     background-color: #e11d48 !important;
-    color: white !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
 }
 
-.stButton > button {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-    color: white !important;
-    border-radius: 20px !important;
-    border: none !important;
-}
-
-.stButton > button:hover {
-    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+div[data-testid="stChatMessageAvatarAssistant"] svg {
+    fill: #ffffff !important;
+    color: #ffffff !important;
 }
 </style>
 """
+
 st.markdown(page_css, unsafe_allow_html=True)
 
 st.title("ElajFinder")
