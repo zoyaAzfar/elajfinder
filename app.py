@@ -681,10 +681,12 @@ st.set_page_config(
 # styling for page
 page_css = """
 <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Noto+Nastaliq+Urdu:wght@400..700&display=swap');
+
 html, body, [class*="css"], .stApp, 
 div[data-testid="stMarkdownContainer"] *, 
 div[data-testid="stHeading"] * {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    font-family: "IBM Plex Serif", serif !important;
 }
 
 h1, h2, h3, h4,
