@@ -14,6 +14,8 @@ from google.genai import types
 import googlemaps 
 import time
 from google.genai.errors import APIError
+import uuid, datetime
+
 from PIL import Image 
 im = Image.open('favicon.png') 
 
@@ -57,10 +59,22 @@ STOPWORDS = {"hospital", "medical", "complex", "building", "old", "new", "the", 
 def init_user_tables():
     conn = sqlite3.connect(DB_FILE)
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS user_data (
-            user_key TEXT PRIMARY KEY,
-            chat_history TEXT,
-            saved_locations TEXT
+        CREATE TABLE IF NOT EXISTS conversations (
+            conv_id TEXT PRIMARY KEY,
+            user_key TEXT,
+            title TEXT,
+            messages TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS saved_locations (
+            user_key TEXT,
+            label TEXT,
+            lat REAL,
+            lon REAL,
+            PRIMARY KEY (user_key, label)
         )
     """)
     conn.commit()
@@ -68,6 +82,51 @@ def init_user_tables():
 
 init_user_tables()
 
+import uuid, datetime
+
+def list_conversations(user_key):
+    conn = sqlite3.connect(DB_FILE)
+    rows = conn.execute(
+        "SELECT conv_id, title, updated_at FROM conversations WHERE user_key=? ORDER BY updated_at DESC",
+        (user_key,)
+    ).fetchall()
+    conn.close()
+    return rows  # [(conv_id, title, updated_at), ...]
+
+def load_conversation(conv_id):
+    conn = sqlite3.connect(DB_FILE)
+    row = conn.execute("SELECT messages FROM conversations WHERE conv_id=?", (conv_id,)).fetchone()
+    conn.close()
+    return json.loads(row[0]) if row else []
+
+def new_conversation(user_key, first_message_preview="New chat"):
+    conv_id = str(uuid.uuid4())
+    now = datetime.datetime.utcnow().isoformat()
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute(
+        "INSERT INTO conversations (conv_id, user_key, title, messages, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+        (conv_id, user_key, first_message_preview[:40], "[]", now, now)
+    )
+    conn.commit()
+    conn.close()
+    return conv_id
+
+def save_conversation(conv_id, messages):
+    now = datetime.datetime.utcnow().isoformat()
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute(
+        "UPDATE conversations SET messages=?, updated_at=? WHERE conv_id=?",
+        (json.dumps(messages), now, conv_id)
+    )
+    conn.commit()
+    conn.close()
+
+def delete_conversation(conv_id):
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("DELETE FROM conversations WHERE conv_id=?", (conv_id,))
+    conn.commit()
+    conn.close()
+    
 def load_user_data(user_key):
     conn = sqlite3.connect(DB_FILE)
     row = conn.execute(
@@ -797,7 +856,30 @@ if "preset_prompt" not in st.session_state:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+with st.sidebar:
+    st.subheader("Your Conversations")
 
+    if st.button("➕ New Chat"):
+        conv_id = new_conversation(st.session_state.user_key)
+        st.session_state.active_conv_id = conv_id
+        st.session_state.messages = []
+        st.rerun()
+
+    for conv_id, title, updated_at in list_conversations(st.session_state.user_key):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            if st.button(title or "Untitled chat", key=f"open_{conv_id}"):
+                st.session_state.active_conv_id = conv_id
+                st.session_state.messages = load_conversation(conv_id)
+                st.rerun()
+        with col2:
+            if st.button("🗑️", key=f"del_{conv_id}"):
+                delete_conversation(conv_id)
+                if st.session_state.get("active_conv_id") == conv_id:
+                    st.session_state.active_conv_id = None
+                    st.session_state.messages = []
+                st.rerun()
+                
 # creating sidebar
 with st.sidebar:
 
@@ -920,17 +1002,18 @@ prompt = user_typed or st.session_state.preset_prompt
 
 if prompt:
     st.session_state.preset_prompt = None
-    
+
+    # lazily create a conversation on first message
+    if not st.session_state.get("active_conv_id"):
+        st.session_state.active_conv_id = new_conversation(st.session_state.user_key, prompt)
+
     st.chat_message("user").markdown(prompt)
-    
     current_history = st.session_state.messages.copy()
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.chat_message("assistant"):
         response_generator = process_query(prompt, current_history)
         full_response = st.write_stream(response_generator)
-  
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
-    if st.session_state.get("user_key"):
-        save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.get("saved_locations", {}))
 
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    save_conversation(st.session_state.active_conv_id, st.session_state.messages)
