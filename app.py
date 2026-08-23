@@ -135,6 +135,12 @@ HOSPITAL_CORE_TOKENS = {name: _core_tokens(name) for name in EXISTING_HOSPITALS}
 
 QUESTION_FILLER = STOPWORDS | {"compare", "vs", "versus", "between", "or", "a", "an"}
 
+QUERY_CLEAN_WORDS = STOPWORDS | {"memorial", "care", "clinic", "center", "centre"}
+
+def clean_hospital_query(text: str) -> str:
+    tokens = [t for t in re.findall(r"[a-z0-9]+", text.lower()) if t not in QUERY_CLEAN_WORDS]
+    return " ".join(tokens)
+
 # compares each hospital's bare distinctive token(s) against each word in the
 # user's input so a one letter typo isn't drowned out by filler like 'hospital"
 
