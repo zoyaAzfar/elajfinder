@@ -77,6 +77,7 @@ def init_user_tables():
 
 init_user_tables()
 
+
 # pre-fetch existing hospital names for fuzzy matching
 EXISTING_HOSPITALS = df["Hospital Name"].dropna().unique().tolist()
 conn.close()
