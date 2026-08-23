@@ -773,7 +773,7 @@ div[data-testid="stChatMessageAvatarAssistant"] svg {
 st.markdown(page_css, unsafe_allow_html=True)
 
 
-st.title("ElajFinder")
+st.title("Lahore Hospital Finder")
 st.write("I can help you find information on and compare hospitals in Lahore!")
 
 if "user_key" not in st.session_state:
