@@ -446,7 +446,7 @@ def ask_comparison(hospital_names: list, user_question: str):
     4. Highlight which hospitals perform Above Average (better) vs Below Average (worse) in negative feedback, with concrete examples why.
     5. Factor in the user's location from the distance to the hospital. 
     6. State clearly that you provide hospital choice guidance, not medical advice.
-    7. Keep answers short - under 300 words.
+    7. Keep answers short - under 300 words, but EXPLAIN everything clearly and highlight trade-offs.
     8. REMEMBER: ANY CURRENCY IS IN PAKISTANI RUPEE. 
     9. When using quotes, format accordingly. Keep CONCISE and BRIEF unless otherwise specified.
     """
@@ -555,11 +555,10 @@ def ask_chatbot_general(user_question: str):
     STRICT FORMATTING INSTRUCTIONS:
     1. LANGUAGE MATCHING: Detect the language and script of the user's question (Urdu script, Roman Urdu, or English) and write your entire response strictly in that same language/script.
     2. Provide a brief overview answering the question directly.
-    3. Do NOT include generic advice, "next steps", or preparation lists. Keep it CONCISE and BRIEF unless asked.
+    3. Do NOT include generic advice, "next steps", or preparation lists. 
     4. State clearly that you provide hospital choice advice, not medical advice. Ask if they need further help.
-    5. Use clear language with statistics or relevant quotes. Do not use tables or headings. Remember, you are here to answer in a conversational tone 
-    to someone who does not understand a lot of complex data. So, for each data point you mention, analyze what this means about the hospital.
-        EXAMPLE: "31% of all reviews about Hospital X are negative. This means that the sentiment is usually positive."
+    5. Use clear language with statistics or relevant quotes. Do not use tables or headings. Remember, you are here to answer in a conversational tone. 
+    to someone who DOES NOT UNDERSTAND COMPLEX DATA. So, for each data point you mention, ANALYZE what this means about the hospital and explain everything clearly.
     6. Read the reviews for each hospital carefully and incorporate them into your feedback. Also incorporate the user's location and distance from the hospital.
     7. REMEMBER: ANY CURRENCY IS IN PAKISTANI RUPEE. 
     8. When using quotes, format accordingly. 
