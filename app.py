@@ -933,4 +933,3 @@ if prompt:
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     if st.session_state.get("user_key"):
         save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.get("saved_locations", {}))
-~
