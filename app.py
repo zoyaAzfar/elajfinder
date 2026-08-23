@@ -49,11 +49,6 @@ ALL_DEPARTMENTS = sorted([
     if dept and dept.lower() not in ["", "nan", "none", "null"]
 ])
 
-# pre-fetch existing hospital names for fuzzy matching
-EXISTING_HOSPITALS = df["Hospital Name"].dropna().unique().tolist()
-conn.close()
-
-STOPWORDS = {"hospital", "medical", "complex", "building", "old", "new", "the", "of", "and"}
 
 # user table for saving history
 def init_user_tables():
@@ -82,7 +77,11 @@ def init_user_tables():
 
 init_user_tables()
 
-import uuid, datetime
+# pre-fetch existing hospital names for fuzzy matching
+EXISTING_HOSPITALS = df["Hospital Name"].dropna().unique().tolist()
+conn.close()
+
+STOPWORDS = {"hospital", "medical", "complex", "building", "old", "new", "the", "of", "and"}
 
 def list_conversations(user_key):
     conn = sqlite3.connect(DB_FILE)
