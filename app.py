@@ -14,8 +14,6 @@ from google.genai import types
 import googlemaps 
 import time
 from google.genai.errors import APIError
-import uuid, datetime
-
 from PIL import Image 
 im = Image.open('favicon.png') 
 
@@ -49,27 +47,20 @@ ALL_DEPARTMENTS = sorted([
     if dept and dept.lower() not in ["", "nan", "none", "null"]
 ])
 
+# pre-fetch existing hospital names for fuzzy matching
+EXISTING_HOSPITALS = df["Hospital Name"].dropna().unique().tolist()
+conn.close()
+
+STOPWORDS = {"hospital", "medical", "complex", "building", "old", "new", "the", "of", "and"}
 
 # user table for saving history
 def init_user_tables():
     conn = sqlite3.connect(DB_FILE)
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS conversations (
-            conv_id TEXT PRIMARY KEY,
-            user_key TEXT,
-            title TEXT,
-            messages TEXT,
-            created_at TEXT,
-            updated_at TEXT
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS saved_locations (
-            user_key TEXT,
-            label TEXT,
-            lat REAL,
-            lon REAL,
-            PRIMARY KEY (user_key, label)
+        CREATE TABLE IF NOT EXISTS user_data (
+            user_key TEXT PRIMARY KEY,
+            chat_history TEXT,
+            saved_locations TEXT
         )
     """)
     conn.commit()
@@ -77,56 +68,6 @@ def init_user_tables():
 
 init_user_tables()
 
-
-# pre-fetch existing hospital names for fuzzy matching
-EXISTING_HOSPITALS = df["Hospital Name"].dropna().unique().tolist()
-conn.close()
-
-STOPWORDS = {"hospital", "medical", "complex", "building", "old", "new", "the", "of", "and"}
-
-def list_conversations(user_key):
-    conn = sqlite3.connect(DB_FILE)
-    rows = conn.execute(
-        "SELECT conv_id, title, updated_at FROM conversations WHERE user_key=? ORDER BY updated_at DESC",
-        (user_key,)
-    ).fetchall()
-    conn.close()
-    return rows  # [(conv_id, title, updated_at), ...]
-
-def load_conversation(conv_id):
-    conn = sqlite3.connect(DB_FILE)
-    row = conn.execute("SELECT messages FROM conversations WHERE conv_id=?", (conv_id,)).fetchone()
-    conn.close()
-    return json.loads(row[0]) if row else []
-
-def new_conversation(user_key, first_message_preview="New chat"):
-    conv_id = str(uuid.uuid4())
-    now = datetime.datetime.utcnow().isoformat()
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute(
-        "INSERT INTO conversations (conv_id, user_key, title, messages, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-        (conv_id, user_key, first_message_preview[:40], "[]", now, now)
-    )
-    conn.commit()
-    conn.close()
-    return conv_id
-
-def save_conversation(conv_id, messages):
-    now = datetime.datetime.utcnow().isoformat()
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute(
-        "UPDATE conversations SET messages=?, updated_at=? WHERE conv_id=?",
-        (json.dumps(messages), now, conv_id)
-    )
-    conn.commit()
-    conn.close()
-
-def delete_conversation(conv_id):
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute("DELETE FROM conversations WHERE conv_id=?", (conv_id,))
-    conn.commit()
-    conn.close()
-    
 def load_user_data(user_key):
     conn = sqlite3.connect(DB_FILE)
     row = conn.execute(
@@ -204,7 +145,7 @@ def clean_hospital_query(text: str) -> str:
 # user's input so a one letter typo isn't drowned out by filler like 'hospital"
 
 def _best_hospital_matches(user_text: str, score_cutoff: int = 78, limit: int = 5):
-    
+
     q_words = [w for w in _tokenize(user_text) if w not in QUESTION_FILLER]
     if not q_words:
         return []
@@ -244,7 +185,7 @@ def detect_mentioned_hospitals(user_question: str, score_cutoff: int = 80, limit
         limit=limit, 
         score_cutoff=score_cutoff
     )
-    
+
     for name, score, _ in matches:
         if name not in found:
             found.append(name)
@@ -314,9 +255,9 @@ def get_gmaps_road_distance(user_lat, user_lon, hosp_lat, hosp_lon):
         try:
             origin = (user_lat, user_lon)
             destination = (hosp_lat, hosp_lon)
-            
+
             result = gmaps.distance_matrix(origins=[origin], destinations=[destination], mode="driving")
-            
+
             if result['status'] == 'OK':
                 element = result['rows'][0]['elements'][0]
                 if element['status'] == 'OK':
@@ -326,7 +267,7 @@ def get_gmaps_road_distance(user_lat, user_lon, hosp_lat, hosp_lon):
                     return distance_km, duration_min
         except Exception as e:
             pass
-            
+
     est_km = get_straight_line_distance(user_lat, user_lon, hosp_lat, hosp_lon)
     return est_km, round(est_km * 3)
 
@@ -341,7 +282,7 @@ def get_performance_label(hospital_ratio: float, comparison_avg: float, buffer: 
 
     if pd.isna(hospital_ratio):
         return "N/A"
-    
+
     if hospital_ratio > (comparison_avg + buffer):
         return "Below Average Performance (High Negative Reviews)"
     elif hospital_ratio < (comparison_avg - buffer):
@@ -405,12 +346,12 @@ def is_query_safe(sql: str) -> bool:
     clean_sql = sql.strip().upper()
     if not (clean_sql.startswith("SELECT") or clean_sql.startswith("WITH")):
         return False
-        
+
     forbidden = ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE"]
     for word in forbidden:
         if re.search(r'\b' + word + r'\b', clean_sql):
             return False
-            
+
     return True
 
 # overrides whatever columns the llm picked in SELECT keeps its WHERE/ORDER/LIMIT logic intact
@@ -426,46 +367,46 @@ def get_schema():
 def sanitize_df_for_prompt(df: pd.DataFrame, max_rows: int = 5, max_cell_chars: int = 200) -> pd.DataFrame:
     if df.empty:
         return df
-    
+
     trimmed_df = df.head(max_rows).copy()
-    
+
     for col in trimmed_df.columns:
         if trimmed_df[col].dtype == "object":
             trimmed_df[col] = trimmed_df[col].astype(str).apply(
                 lambda x: x[:max_cell_chars] + "..." if len(x) > max_cell_chars else x
             )
-            
+
     return trimmed_df
 
 # fetches full data rows using flexible string matching.
 def fetch_hospitals_for_comparison(hospital_names: list) -> pd.DataFrame:
     if not hospital_names:
         return pd.DataFrame()
-        
+
     conn = get_read_only_connection()
-    
+
     resolved_names = [resolve_hospital_name(name) for name in hospital_names]
-    
+
     conditions = " OR ".join(["LOWER(\"Hospital Name\") LIKE LOWER(?)" for _ in resolved_names])
     query = f"SELECT * FROM data_table WHERE {conditions}"
-    
+
     params = [f"%{name}%" for name in resolved_names]
     results_df = pd.read_sql_query(query, conn, params=params)
     conn.close()
-    
+
     return results_df
 
 # triggers when user asks to compare two hospitals
 def ask_comparison(hospital_names: list, user_question: str):
     df_comparison = fetch_hospitals_for_comparison(hospital_names)
-    
+
     if df_comparison.empty:
         yield f"Could not find matching hospitals for: {', '.join(hospital_names)}\n"
         return
 
     user_coords = st.session_state.get("user_coords")
     user_location_name = st.session_state.get("user_location_name", "Not specified")
-    
+
     if user_coords:
         df_comparison = add_distance_to_dataframe(df_comparison, user_coords)
 
@@ -474,12 +415,12 @@ def ask_comparison(hospital_names: list, user_question: str):
         if user_coords else
         "\nUser location: not provided. Do not mention distance.\n"
     )
-    
+
     safe_df_comp = sanitize_df_for_prompt(df_comparison, max_rows=5, max_cell_chars=150)
-    
+
     selected_ratios = pd.to_numeric(safe_df_comp.get("Negative Reviews Ratio (%)"), errors="coerce")
     subset_avg_ratio = selected_ratios.mean()
-    
+
     records = safe_df_comp.to_dict(orient="records")
     for row in records:
         ratio = pd.to_numeric(row.get("Negative Reviews Ratio (%)"), errors="coerce")
@@ -487,7 +428,7 @@ def ask_comparison(hospital_names: list, user_question: str):
         row["Performance vs City Benchmark"] = get_performance_label(ratio, CITY_AVG_NEG_RATIO)
 
     hospitals_json = json.dumps(records, indent=2)
-        
+
     comparison_prompt = f"""
     User question: "{user_question}"
     {location_line}
@@ -524,7 +465,7 @@ def ask_comparison(hospital_names: list, user_question: str):
 # triggers when user asks general question
 def ask_chatbot_general(user_question: str):
     schema = get_schema()
-    
+
     all_hospitals_str = ", ".join(EXISTING_HOSPITALS)
 
     detected_hospitals = detect_mentioned_hospitals(user_question)
@@ -560,18 +501,18 @@ def ask_chatbot_general(user_question: str):
     {hospital_hint}
     Question: {user_question}
     """
-    
+
     sql_completion = call_gemini_safe(
         gemini_client.models.generate_content,
         model="gemini-3.5-flash-lite",
         contents=sql_prompt,
         config=types.GenerateContentConfig(temperature=0.1)
     )
-    
+
     raw_sql = sql_completion.text or ""
 
     sql_query = raw_sql.strip().replace("```sql", "").replace("```", "").strip()
-    
+
     if not is_query_safe(sql_query):
         yield "Safety Guardrail Triggered: Modifying queries are disallowed."
         return
@@ -603,7 +544,7 @@ def ask_chatbot_general(user_question: str):
         if user_coords else
         "\nUser location: not provided. Do not mention distance or nearby hospitals.\n"
     )
-        
+
     summary_prompt = f"""
     User question: "{user_question}"
     Executed SQL: {sql_query}
@@ -629,14 +570,14 @@ def ask_chatbot_general(user_question: str):
     operational capacity or specialty breakdown.  Since users can mistakenly tag stars, sometimes they may contain positive feedback.
     - Example: A 'Gynecology (%)' of 60% simply means 60% of online reviewers discussed the gynecology department. To check if a hospital offers that service, check the department list before reviews.
     """
-    
+
     summary_response = call_gemini_safe(
         gemini_client.models.generate_content_stream,
         model="gemini-3.5-flash-lite",
         contents=summary_prompt,
         config=types.GenerateContentConfig(temperature=0.7)
     )
-    
+
     for chunk in summary_response:
         if chunk.text:
             yield chunk.text
@@ -666,7 +607,7 @@ def route_user_query(user_question: str) -> dict:
     2. For general search or filtering questions (including questions about a single hospital):
        {{"intent": "general", "hospitals": []}}
     """
-    
+
     try:
         completion = call_gemini_safe(
             gemini_client.models.generate_content,
@@ -678,7 +619,7 @@ def route_user_query(user_question: str) -> dict:
             )
         )
         data = json.loads(completion.text)
-        
+
         # Apply fuzzy correction to extracted hospital names
         if data.get("hospitals"):
             data["hospitals"] = [resolve_hospital_name(h) for h in data["hospitals"]]
@@ -690,15 +631,15 @@ def route_user_query(user_question: str) -> dict:
 def contextualize_question(user_question: str, chat_history: list) -> str:
     if not chat_history:
         return user_question
-        
+
     recent_history = chat_history[-4:]
-    
+
     history_str = ""
     for msg in recent_history:
         role = "User" if msg["role"] == "user" else "Assistant"
         content_snippet = str(msg['content'])[:200]
         history_str += f"{role}: {content_snippet}...\n"
-        
+
     context_prompt = f"""
     Given the following conversation history and the user's latest question, rewrite the latest question into a clear, standalone question. 
 
@@ -716,7 +657,7 @@ def contextualize_question(user_question: str, chat_history: list) -> str:
     
     Standalone Question:
     """
-    
+
     try:
         completion = gemini_client.models.generate_content(
             model="gemini-3.5-flash-lite",
@@ -831,7 +772,7 @@ div[data-testid="stChatMessageAvatarAssistant"] svg {
 
 st.markdown(page_css, unsafe_allow_html=True)
 
-    
+
 st.title("ElajFinder")
 st.write("I can help you find information on and compare hospitals in Lahore!")
 
@@ -856,30 +797,7 @@ if "preset_prompt" not in st.session_state:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-with st.sidebar:
-    st.subheader("Your Conversations")
 
-    if st.button("➕ New Chat"):
-        conv_id = new_conversation(st.session_state.user_key)
-        st.session_state.active_conv_id = conv_id
-        st.session_state.messages = []
-        st.rerun()
-
-    for conv_id, title, updated_at in list_conversations(st.session_state.user_key):
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            if st.button(title or "Untitled chat", key=f"open_{conv_id}"):
-                st.session_state.active_conv_id = conv_id
-                st.session_state.messages = load_conversation(conv_id)
-                st.rerun()
-        with col2:
-            if st.button("🗑️", key=f"del_{conv_id}"):
-                delete_conversation(conv_id)
-                if st.session_state.get("active_conv_id") == conv_id:
-                    st.session_state.active_conv_id = None
-                    st.session_state.messages = []
-                st.rerun()
-                
 # creating sidebar
 with st.sidebar:
 
@@ -896,24 +814,24 @@ with st.sidebar:
             st.error("Google Maps is not configured. Please add your API key.")
         else:
             search_query = f"{user_location_str}, Lahore, Pakistan"
-            
+
             with st.spinner("Finding location using Google Maps..."):
                 try:
                     geocode_result = gmaps.geocode(search_query)
-                    
+
                     if geocode_result:
                         best_match = geocode_result[0]
                         lat = best_match['geometry']['location']['lat']
                         lng = best_match['geometry']['location']['lng']
                         formatted_address = best_match['formatted_address']
-                        
+
                         st.session_state.user_coords = (lat, lng)
                         st.session_state.user_location_name = user_location_str  
-                        
+
                         st.success(f"Location set: {formatted_address}")
                     else:
                         st.error("Google Maps couldn't find that location. Please try a different area name.")
-                        
+
                 except Exception as e:
                     st.error(f"An unexpected error occurred with Google Maps: {e}")
 
@@ -922,7 +840,7 @@ with st.sidebar:
         if pick:
             st.session_state.user_coords = tuple(st.session_state.saved_locations[pick])
             st.session_state.user_location_name = pick
-    
+
     save_label = st.sidebar.text_input("Save current location as:", placeholder="Home, Work...")
     if st.sidebar.button("Save Location") and st.session_state.get("user_coords") and save_label:
         st.session_state.saved_locations[save_label] = list(st.session_state.user_coords)
@@ -948,7 +866,7 @@ with st.sidebar:
 
     if st.button("Find Matching Hospitals"):
         prompt_parts = ["Find me hospitals"]
-        
+
         if selected_sector:
             prompt_parts.append(f"in the {selected_sector} sector")
         if selected_dept:
@@ -971,7 +889,7 @@ with st.sidebar:
             prompt_parts.append("with a large number of beds")
         if good_reviews:
             prompt_parts.append("where the negative review ratio is strictly below 50%")
-            
+
         if len(prompt_parts) > 1:
             final_prompt = " ".join(prompt_parts) + "."
             st.session_state.preset_prompt = final_prompt
@@ -1003,11 +921,8 @@ prompt = user_typed or st.session_state.preset_prompt
 if prompt:
     st.session_state.preset_prompt = None
 
-    # lazily create a conversation on first message
-    if not st.session_state.get("active_conv_id"):
-        st.session_state.active_conv_id = new_conversation(st.session_state.user_key, prompt)
-
     st.chat_message("user").markdown(prompt)
+
     current_history = st.session_state.messages.copy()
     st.session_state.messages.append({"role": "user", "content": prompt})
 
@@ -1016,4 +931,6 @@ if prompt:
         full_response = st.write_stream(response_generator)
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
-    save_conversation(st.session_state.active_conv_id, st.session_state.messages)
+    if st.session_state.get("user_key"):
+        save_user_data(st.session_state.user_key, st.session_state.messages, st.session_state.get("saved_locations", {}))
+~
